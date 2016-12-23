@@ -1,10 +1,13 @@
-#[macro_use] extern crate webplatform;
-extern crate mustache;
+#[macro_use]
+extern crate webplatform;
+#[macro_use]
+extern crate maplit;
+extern crate handlebars;
 extern crate rustc_serialize;
 
-use mustache::{MapBuilder};
+use handlebars::Handlebars;
 use std::rc::Rc;
-use std::cell::{RefCell};
+use std::cell::RefCell;
 use webplatform::{Event, LocalStorage};
 use rustc_serialize::json;
 use std::clone::Clone;
@@ -28,7 +31,7 @@ impl TodoItem {
 enum TodoState {
     Active,
     Completed,
-    All
+    All,
 }
 
 macro_rules! enclose {
@@ -49,7 +52,7 @@ impl Todo {
     fn new() -> Todo {
         Todo {
             state: TodoState::All,
-            items: vec![]
+            items: vec![],
         }
     }
 }
@@ -83,7 +86,8 @@ fn main() {
     }
 
     // Precompile mustache template for string.
-    let template = mustache::compile_str(TEMPLATE_TODO);
+    let mut handlebars = Handlebars::new();
+    handlebars.register_template_string("todo", TEMPLATE_TODO.to_owned()).unwrap();
 
     let llist = list.root_ref();
     let render = Rc::new(enclose! { (todo) move || {
@@ -98,15 +102,14 @@ fn main() {
                 TodoState::Completed => x.completed,
             }
         }).enumerate() {
-            let data = MapBuilder::new()
-                .insert_str("id", format!("{}", i))
-                .insert_str("checked", if item.completed { "checked" } else { "" })
-                .insert_str("value", item.title.clone())
-                .build();
+            let data = btreemap!{
+                "id".to_owned() => format!("{}", i),
+                "checked".to_owned() => (if item.completed { "checked" } else { "" }).to_owned(),
+                "value".to_owned() => item.title.clone(),
+            };
 
-            let mut vec = Vec::new();
-            template.render_data(&mut vec, &data);
-            llist.html_append(&String::from_utf8(vec).unwrap());
+            let result = handlebars.render("todo", &data).unwrap();
+            llist.html_append(&result);
         }
 
         let len = todo.borrow().items.iter().filter(|&x| !x.completed).count();
@@ -152,7 +155,8 @@ fn main() {
         }
     } });
 
-    list.on("dblclick", enclose! { (document) move |e:Event| {
+    list.on("dblclick",
+            enclose! { (document) move |e:Event| {
         let node = e.target.unwrap();
         if node.tagname() == "label" {
             node.parent().unwrap().parent().unwrap().class_add("editing");
@@ -160,7 +164,8 @@ fn main() {
         }
     } });
 
-    list.captured_on("blur", enclose! { (todo, render) move |e:Event| {
+    list.captured_on("blur",
+                     enclose! { (todo, render) move |e:Event| {
         let node = e.target.unwrap();
         if node.class_get().contains("edit") {
             let id = node.parent().unwrap().data_get("id").unwrap().parse::<usize>().unwrap();
@@ -169,13 +174,15 @@ fn main() {
         }
     } });
 
-    clear.on("click", enclose! { (todo, render) move |_:Event| {
+    clear.on("click",
+             enclose! { (todo, render) move |_:Event| {
         todo.borrow_mut().items.retain(|ref x| !x.completed);
         render();
     } });
 
     let t1 = todo_new.root_ref();
-    todo_new.on("change", enclose! { (todo, render) move |_:Event| {
+    todo_new.on("change",
+                enclose! { (todo, render) move |_:Event| {
         let value = t1.prop_get_str("value");
         t1.prop_set_str("value", "");
 
@@ -203,13 +210,15 @@ fn main() {
         render();
     } });
 
-    document.on("hashchange", enclose! { (update_path) move |_:Event| {
+    document.on("hashchange",
+                enclose! { (update_path) move |_:Event| {
         update_path();
     } });
     update_path();
 
     let tgl = toggle_all.root_ref();
-    toggle_all.on("change", enclose! { (todo, render) move |_:Event| {
+    toggle_all.on("change",
+                  enclose! { (todo, render) move |_:Event| {
         let val = if tgl.prop_get_i32("checked") == 1 { true } else { false };
         for item in todo.borrow_mut().items.iter_mut() {
             item.completed = val;
