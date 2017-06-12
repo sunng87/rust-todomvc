@@ -1,21 +1,21 @@
-#[macro_use]
 extern crate webplatform;
 #[macro_use]
 extern crate maplit;
 extern crate handlebars;
-extern crate rustc_serialize;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 
 use handlebars::Handlebars;
 use std::rc::Rc;
 use std::cell::RefCell;
 use webplatform::{Event, LocalStorage};
-use rustc_serialize::json;
 use std::clone::Clone;
 
 const TEMPLATE_PAGE: &'static str = include_str!("template-page.html");
 const TEMPLATE_TODO: &'static str = include_str!("template-todo.html");
 
-#[derive(RustcEncodable, RustcDecodable, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 struct TodoItem {
     title: String,
     completed: bool,
@@ -70,9 +70,15 @@ fn main() {
     let clear = document.element_query(".clear-completed").unwrap();
     let main = document.element_query(".main").unwrap();
     let footer = document.element_query(".footer").unwrap();
-    let filter_all = document.element_query(".filters li:nth-child(1) a").unwrap();
-    let filter_active = document.element_query(".filters li:nth-child(2) a").unwrap();
-    let filter_completed = document.element_query(".filters li:nth-child(3) a").unwrap();
+    let filter_all = document
+        .element_query(".filters li:nth-child(1) a")
+        .unwrap();
+    let filter_active = document
+        .element_query(".filters li:nth-child(2) a")
+        .unwrap();
+    let filter_completed = document
+        .element_query(".filters li:nth-child(3) a")
+        .unwrap();
     let toggle_all = document.element_query(".toggle-all").unwrap();
 
     // Our TODO list.
@@ -80,18 +86,20 @@ fn main() {
 
     // Decode localStorage list of todos.
     if let Some(data) = LocalStorage.get("todos-rust") {
-        if let Ok(vec) = json::decode::<Vec<TodoItem>>(&data) {
+        if let Ok(vec) = serde_json::from_str::<Vec<TodoItem>>(&data) {
             todo.borrow_mut().items.extend(vec.iter().cloned());
         }
     }
 
     // Precompile mustache template for string.
     let mut handlebars = Handlebars::new();
-    handlebars.register_template_string("todo", TEMPLATE_TODO.to_owned()).unwrap();
+    handlebars
+        .register_template_string("todo", TEMPLATE_TODO.to_owned())
+        .unwrap();
 
     let llist = list.root_ref();
     let render = Rc::new(enclose! { (todo) move || {
-        LocalStorage.set("todos-rust", &json::encode(&todo.borrow().items).unwrap());
+        LocalStorage.set("todos-rust", &serde_json::to_string(&todo.borrow().items).unwrap());
 
         llist.html_set("");
 
