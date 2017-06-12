@@ -40,6 +40,16 @@ cp target/asmjs-unknown-emscripten/debug/todomvc.js static
 cd static; python -m SimpleHTTPServer
 ```
 
+For wasm32, you can:
+
+```
+cargo build --target=wasm32-unknown-emscripten
+cp target/wasm32-unknown-emscripten/debug/todomvc.js static
+## the file name todomvc-xxx.wasm is depend on you build
+cp target/wasm32-unknown-emscripten/debug/deps/todomvc-xxx.wasm static
+cd static; python -m SimpleHTTPServer
+```
+
 Open `http://localhost:8000/`. There you go!
 
 See [brson's post on Rust and emscripten](https://users.rust-lang.org/t/compiling-to-the-web-with-rust-and-emscripten/7627) for more installation details.
